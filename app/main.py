@@ -174,6 +174,34 @@ GALLERY_HTML = """<!doctype html>
     text-decoration: none; color: inherit;
   }}
   .chip:hover {{ transform: translateY(-2px); border-color: var(--accent); }}
+  .chip-active {{
+    border-color: var(--accent) !important;
+    background: linear-gradient(135deg, #1e2a4a 0%, var(--panel) 100%);
+    box-shadow: 0 0 0 1px var(--accent) inset;
+  }}
+  .object-banner {{
+    background: linear-gradient(90deg, #1a2845 0%, var(--panel) 100%);
+    border: 1px solid var(--accent); border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }}
+  .object-banner .obj-id {{
+    font-family: ui-monospace, monospace; font-weight: 700; font-size: 18px;
+    color: var(--accent);
+  }}
+  .object-banner .obj-name {{ font-size: 18px; font-weight: 600; }}
+  .object-banner .obj-meta {{ color: var(--muted); font-size: 13px; }}
+  .object-banner a.clear {{
+    margin-left: auto; color: var(--muted); text-decoration: none;
+    font-size: 13px; padding: 4px 10px; border: 1px solid var(--border);
+    border-radius: 6px;
+  }}
+  .object-banner a.clear:hover {{ border-color: var(--accent); color: var(--text); }}
+  .empty-for-object {{
+    padding: 40px 20px; text-align: center; color: var(--muted);
+    background: var(--panel); border: 1px dashed var(--border); border-radius: 12px;
+    margin-bottom: 24px;
+  }}
   .chip-head {{ display: flex; align-items: baseline; gap: 8px; }}
   .chip-id {{
     font-family: ui-monospace, monospace; font-size: 12px; font-weight: 600;
@@ -211,7 +239,9 @@ GALLERY_HTML = """<!doctype html>
 
 {catalog_section}
 
-<div class="section-title">Imagery <span class="count">{n_sources}</span></div>
+{object_banner}
+
+<div class="section-title">Imagery <span class="count">{imagery_count_label}</span></div>
 
 {grid}
 
@@ -240,10 +270,48 @@ CARD_HTML = """<a href="{upstream}" target="_blank" class="card">
 
 
 @app.get("/", response_class=HTMLResponse)
-async def gallery(q: str = "", limit: int = 60) -> HTMLResponse:
+async def gallery(q: str = "", obj: str = "", limit: int = 60) -> HTMLResponse:
     pool = await get_pool()
+    active_object = None
     async with pool.acquire() as conn:
-        if q:
+        if obj:
+            active_object = await conn.fetchrow(
+                """
+                SELECT catalog_id, name, designations, common_names, obj_type,
+                       magnitude, size_arcmin, constellation, catalog_source,
+                       ra, dec
+                  FROM sky_objects
+                 WHERE catalog_id = $1
+                """,
+                obj,
+            )
+            if active_object:
+                # Only match aliases that are specific enough to avoid false positives.
+                # Drop <4-char aliases (M31, M45, C92) — too likely to appear
+                # accidentally in archive IDs or PIA numbers. Keep the longer
+                # common names which are unambiguous astronomy terms.
+                aliases = [a for a in (list(active_object["designations"])
+                                       + list(active_object["common_names"]))
+                           if a and len(a) >= 4]
+                if not aliases:
+                    rows = []
+                else:
+                    rows = await conn.fetch(
+                        """
+                        SELECT s.id, s.source, s.source_id, s.title, s.storage_policy,
+                               s.upstream_url,
+                               (SELECT id FROM sky_tiles t
+                                 WHERE t.source_id = s.id AND t.kind='thumb' LIMIT 1) AS thumb_id
+                          FROM sky_sources s
+                         WHERE s.title ILIKE ANY($1)
+                         ORDER BY s.id DESC
+                         LIMIT $2
+                        """,
+                        [f"%{a}%" for a in aliases], limit,
+                    )
+            else:
+                rows = []
+        elif q:
             rows = await conn.fetch(
                 """
                 SELECT s.id, s.source, s.source_id, s.title, s.storage_policy,
@@ -320,8 +388,10 @@ async def gallery(q: str = "", limit: int = 60) -> HTMLResponse:
         for r in catalog_rows:
             mag = f"mag {r['magnitude']:.1f}" if r['magnitude'] is not None else "—"
             size = f"· {r['size_arcmin']:.0f}'" if r['size_arcmin'] else ""
+            is_active = active_object is not None and active_object["catalog_id"] == r["catalog_id"]
+            active_cls = " chip-active" if is_active else ""
             chips.append(
-                f'<a class="chip" href="/?q={escape(r["name"])}">'
+                f'<a class="chip{active_cls}" href="/?obj={escape(r["catalog_id"])}">'
                 f'  <div class="chip-head">'
                 f'    <span class="chip-id {escape(r["catalog_source"])}">{escape(r["catalog_id"])}</span>'
                 f'    <span class="chip-cst">{escape(r["constellation"] or "")}</span>'
@@ -339,6 +409,39 @@ async def gallery(q: str = "", limit: int = 60) -> HTMLResponse:
     else:
         catalog_section = ""
 
+    if active_object:
+        mag = (f"mag {active_object['magnitude']:.1f}"
+               if active_object['magnitude'] is not None else "")
+        size = (f"{active_object['size_arcmin']:.0f}' across"
+                if active_object['size_arcmin'] else "")
+        aliases_str = ", ".join(list(active_object["common_names"])
+                                + [d for d in active_object["designations"]
+                                   if d != active_object["catalog_id"]])
+        meta_bits = [b for b in (active_object["obj_type"],
+                                 active_object["constellation"],
+                                 mag, size) if b]
+        object_banner = (
+            f'<div class="object-banner">'
+            f'  <span class="obj-id">{escape(active_object["catalog_id"])}</span>'
+            f'  <span class="obj-name">{escape(active_object["name"])}</span>'
+            f'  <span class="obj-meta">{escape(" · ".join(meta_bits))}</span>'
+            f'  <span class="obj-meta">{escape(f"also: {aliases_str}") if aliases_str else ""}</span>'
+            f'  <a class="clear" href="/">clear ×</a>'
+            f'</div>'
+        )
+        imagery_count_label = str(len(rows))
+        if not rows:
+            grid = (
+                f'<div class="empty-for-object">'
+                f'No NASA imagery indexed for <b>{escape(active_object["name"])}</b> yet. '
+                f'Try a different object, or run<br>'
+                f'<code>python -m workers.nasa_iv_ingest "{escape(active_object["name"])}"</code>'
+                f'</div>'
+            )
+    else:
+        object_banner = ""
+        imagery_count_label = str(n_sources)
+
     return HTMLResponse(GALLERY_HTML.format(
         n_sources=n_sources,
         n_objects=n_objects,
@@ -347,5 +450,7 @@ async def gallery(q: str = "", limit: int = 60) -> HTMLResponse:
         cold_free_gb=cold["free_gb"] / 1000,
         q=escape(q),
         catalog_section=catalog_section,
+        object_banner=object_banner,
+        imagery_count_label=imagery_count_label,
         grid=grid,
     ))
