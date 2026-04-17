@@ -1,0 +1,42 @@
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.token
+vault-token
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Runtime artifacts that live under SKYMAP_STORAGE_ROOT but could end up
+# here if someone accidentally sets a relative path
+raw/
+thumbs/
+cutouts/
+cold/
+*.fits
+*.fits.gz
+
+# Logs
+*.log
+logs/
