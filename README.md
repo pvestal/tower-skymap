@@ -1,12 +1,28 @@
 # tower-skymap
 
-A browsable, searchable NASA/astronomy sky-image archive. Indexes imagery by sky
-coordinates (RA/Dec, via the q3c Postgres extension) and caches strategically
-across hot/cold storage tiers with a CDN-fallback pattern, so the local disk
-footprint stays tiny while the archive *feels* unbounded.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![q3c](https://img.shields.io/badge/q3c-sky%20indexing-663399)](https://github.com/segasai/q3c)
+[![NASA APIs](https://img.shields.io/badge/NASA-APOD%20%7C%20IVL-0B3D91?logo=nasa&logoColor=white)](https://api.nasa.gov/)
+[![systemd](https://img.shields.io/badge/systemd-timer%20driven-d33847)](https://systemd.io/)
+[![Status: MVP](https://img.shields.io/badge/status-MVP%20live-brightgreen)](https://github.com/pvestal/tower-skymap)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Linux](https://img.shields.io/badge/platform-linux-informational?logo=linux&logoColor=white)](#)
 
-**Status:** MVP live. APOD + NASA Image & Video Library ingesters working.
-Semantic search (CLIP → Qdrant) and HiPS proxy cache are roadmap items.
+A browsable, searchable **NASA/astronomy sky-image archive**. Indexes imagery
+by sky coordinates (RA/Dec, via the [q3c](https://github.com/segasai/q3c)
+Postgres extension) and caches strategically across hot/cold storage tiers
+with a CDN-fallback pattern, so the local disk footprint stays tiny while
+the archive *feels* unbounded.
+
+> **Status:** MVP live. APOD + NASA Image & Video Library ingesters working.
+> Semantic search (CLIP → Qdrant) and HiPS proxy cache are roadmap items.
+
+**Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md). PRs for new ingesters
+(Hubble, JWST, Chandra, SDSS), HiPS proxy cache, CLIP embedding worker, or a
+Vue frontend are especially welcome.
 
 ---
 
@@ -321,3 +337,11 @@ path follows.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+## Topics
+
+`astronomy` · `nasa` · `nasa-api` · `apod` · `sky-survey` · `image-archive` ·
+`fastapi` · `python` · `postgresql` · `q3c` · `asyncpg` · `self-hosted` ·
+`systemd` · `qdrant` · `clip` · `hips` · `tower-server`
