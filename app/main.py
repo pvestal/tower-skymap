@@ -72,7 +72,7 @@ GALLERY_HTML = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tower Skymap · {n_sources} indexed</title>
+<title>Tower Skymap · {n_sources} imagery · {n_objects} catalog</title>
 <style>
   :root {{
     --bg: #0a0d14;
@@ -154,6 +154,36 @@ GALLERY_HTML = """<!doctype html>
   .empty {{
     text-align: center; padding: 80px 0; color: var(--muted);
   }}
+  .section-title {{
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 0 0 12px 0; font-weight: 600;
+  }}
+  .section-title .count {{
+    color: var(--text); background: var(--panel); padding: 2px 8px;
+    border-radius: 10px; margin-left: 6px; font-size: 11px;
+  }}
+  .catalog-strip {{
+    display: flex; gap: 10px; overflow-x: auto; padding-bottom: 12px;
+    margin-bottom: 24px; scrollbar-width: thin;
+  }}
+  .chip {{
+    flex: 0 0 auto; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; min-width: 180px;
+    display: flex; flex-direction: column; gap: 4px;
+    transition: border-color 0.15s, transform 0.15s;
+    text-decoration: none; color: inherit;
+  }}
+  .chip:hover {{ transform: translateY(-2px); border-color: var(--accent); }}
+  .chip-head {{ display: flex; align-items: baseline; gap: 8px; }}
+  .chip-id {{
+    font-family: ui-monospace, monospace; font-size: 12px; font-weight: 600;
+    padding: 2px 8px; border-radius: 6px; color: #fff;
+  }}
+  .chip-id.messier  {{ background: #6644aa; }}
+  .chip-id.caldwell {{ background: #aa6644; }}
+  .chip-cst {{ font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }}
+  .chip-name {{ font-size: 13px; font-weight: 500; line-height: 1.3; }}
+  .chip-meta {{ font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }}
   footer {{ margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center; }}
   footer a {{ color: var(--accent); text-decoration: none; }}
   footer a:hover {{ text-decoration: underline; }}
@@ -163,7 +193,9 @@ GALLERY_HTML = """<!doctype html>
 <header>
   <h1><span class="logo">◉</span> tower-skymap</h1>
   <div class="stats">
-    <strong>{n_sources}</strong> sources
+    <strong>{n_sources}</strong> imagery
+    <span class="sep">·</span>
+    <strong>{n_objects}</strong> catalog
     <span class="sep">·</span>
     <strong>{n_tiles}</strong> tiles
     <span class="sep">·</span>
@@ -176,6 +208,10 @@ GALLERY_HTML = """<!doctype html>
     <button type="submit">search</button>
   </form>
 </header>
+
+{catalog_section}
+
+<div class="section-title">Imagery <span class="count">{n_sources}</span></div>
 
 {grid}
 
@@ -240,6 +276,17 @@ async def gallery(q: str = "", limit: int = 60) -> HTMLResponse:
 
         n_sources = await conn.fetchval("SELECT count(*) FROM sky_sources")
         n_tiles = await conn.fetchval("SELECT count(*) FROM sky_tiles")
+        n_objects = await conn.fetchval("SELECT count(*) FROM sky_objects")
+
+        catalog_rows = await conn.fetch(
+            """
+            SELECT catalog_id, name, obj_type, constellation,
+                   magnitude, size_arcmin, catalog_source
+              FROM sky_objects
+             ORDER BY magnitude NULLS LAST
+             LIMIT 12
+            """
+        )
 
     hot = _disk_usage(settings.storage_root) or {"free_gb": 0}
     cold = _disk_usage(settings.cold_storage_root) or {"free_gb": 0}
@@ -268,11 +315,37 @@ async def gallery(q: str = "", limit: int = 60) -> HTMLResponse:
     else:
         grid = '<div class="empty">No results. Try a different search term.</div>'
 
+    if catalog_rows:
+        chips = []
+        for r in catalog_rows:
+            mag = f"mag {r['magnitude']:.1f}" if r['magnitude'] is not None else "—"
+            size = f"· {r['size_arcmin']:.0f}'" if r['size_arcmin'] else ""
+            chips.append(
+                f'<a class="chip" href="/?q={escape(r["name"])}">'
+                f'  <div class="chip-head">'
+                f'    <span class="chip-id {escape(r["catalog_source"])}">{escape(r["catalog_id"])}</span>'
+                f'    <span class="chip-cst">{escape(r["constellation"] or "")}</span>'
+                f'  </div>'
+                f'  <div class="chip-name">{escape(r["name"])}</div>'
+                f'  <div class="chip-meta">{escape(r["obj_type"] or "")} · {mag} {size}</div>'
+                f'</a>'
+            )
+        catalog_section = (
+            f'<div class="section-title">Catalog <span class="count">{n_objects}</span> '
+            f'<span style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted);">'
+            f'— brightest first · click to filter imagery</span></div>'
+            f'<div class="catalog-strip">{"".join(chips)}</div>'
+        )
+    else:
+        catalog_section = ""
+
     return HTMLResponse(GALLERY_HTML.format(
         n_sources=n_sources,
+        n_objects=n_objects,
         n_tiles=n_tiles,
         hot_free_gb=hot["free_gb"] / 1000,
         cold_free_gb=cold["free_gb"] / 1000,
         q=escape(q),
+        catalog_section=catalog_section,
         grid=grid,
     ))
