@@ -12,6 +12,26 @@ def _row_to_source(row) -> SourceOut:
     return SourceOut(**{k: row[k] for k in SourceOut.model_fields})
 
 
+@router.get("/text", response_model=list[SourceOut])
+async def text_search(q: str, limit: int = 20) -> list[SourceOut]:
+    pool = await get_pool()
+    rows = await pool.fetch(
+        f"""
+        SELECT {_COLS}
+          FROM sky_sources
+         WHERE to_tsvector('english', coalesce(title,'') || ' ' || coalesce(caption,''))
+               @@ plainto_tsquery('english', $1)
+         ORDER BY ts_rank(
+                    to_tsvector('english', coalesce(title,'') || ' ' || coalesce(caption,'')),
+                    plainto_tsquery('english', $1)
+                  ) DESC
+         LIMIT $2
+        """,
+        q, limit,
+    )
+    return [_row_to_source(r) for r in rows]
+
+
 @router.post("/cone", response_model=list[SourceOut])
 async def cone_search(q: ConeQuery) -> list[SourceOut]:
     pool = await get_pool()
