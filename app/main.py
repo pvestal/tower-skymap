@@ -286,13 +286,16 @@ async def gallery(q: str = "", obj: str = "", limit: int = 60) -> HTMLResponse:
                 obj,
             )
             if active_object:
-                # Only match aliases that are specific enough to avoid false positives.
-                # Drop <4-char aliases (M31, M45, C92) — too likely to appear
-                # accidentally in archive IDs or PIA numbers. Keep the longer
-                # common names which are unambiguous astronomy terms.
+                # Match aliases that are specific enough to avoid false positives.
+                # Keep aliases of length >=4 (e.g. "NGC 224", "Andromeda Galaxy"),
+                # BUT also keep short canonical Messier/Caldwell designations
+                # (M1..M110, C1..C109) — those never collide with NASA archive
+                # IDs because archive IDs like PIA12345 never use bare M/C+digits.
+                import re
+                canonical_short = re.compile(r"^[MC]\d{1,3}$")
                 aliases = [a for a in (list(active_object["designations"])
                                        + list(active_object["common_names"]))
-                           if a and len(a) >= 4]
+                           if a and (len(a) >= 4 or canonical_short.match(a))]
                 if not aliases:
                     rows = []
                 else:
