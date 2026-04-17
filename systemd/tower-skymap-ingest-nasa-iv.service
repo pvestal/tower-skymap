@@ -1,0 +1,11 @@
+[Unit]
+Description=Tower Skymap NASA Image & Video Library ingester
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=patrick
+Group=patrick
+WorkingDirectory=/opt/skymap
+EnvironmentFile=/opt/skymap/.env
+ExecStart=/opt/skymap/venv/bin/python -m workers.nasa_iv_ingest

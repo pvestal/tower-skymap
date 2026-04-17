@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly skymap ingest trigger
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Persistent=true
+Unit=tower-skymap-ingest.service
+
+[Install]
+WantedBy=timers.target

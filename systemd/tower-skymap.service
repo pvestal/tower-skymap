@@ -1,0 +1,17 @@
+[Unit]
+Description=Tower Skymap FastAPI service
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=exec
+User=patrick
+Group=patrick
+WorkingDirectory=/opt/skymap
+EnvironmentFile=/opt/skymap/.env
+ExecStart=/opt/skymap/venv/bin/uvicorn app.main:app --host ${SKYMAP_LISTEN_HOST} --port ${SKYMAP_LISTEN_PORT}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

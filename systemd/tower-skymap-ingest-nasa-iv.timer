@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily NASA IVL ingest (04:00)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=30min
+Unit=tower-skymap-ingest-nasa-iv.service
+
+[Install]
+WantedBy=timers.target

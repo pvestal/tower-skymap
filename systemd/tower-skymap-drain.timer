@@ -1,0 +1,10 @@
+[Unit]
+Description=Skymap drain worker every 60s
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60s
+Unit=tower-skymap-drain.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Tower Skymap ingest worker (APOD + archives)
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=patrick
+Group=patrick
+WorkingDirectory=/opt/skymap
+EnvironmentFile=/opt/skymap/.env
+ExecStart=/opt/skymap/venv/bin/python -m workers.apod_ingest 1

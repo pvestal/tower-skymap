@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly skymap hot->cold migration
+
+[Timer]
+OnCalendar=Sun 03:00
+Persistent=true
+Unit=tower-skymap-tier-migrate.service
+
+[Install]
+WantedBy=timers.target
